@@ -20,20 +20,6 @@ If you want to run loclly or in a different environment, see the [appendix](./in
 4. [Match Hostnames in a Watchlist Against Streaming DNS Data](./instructions/04-watchlist.md)
 5. [Filter SSL Transactions and Enrich with Geospatial Data](./instructions/05-ssl.md)
 
-## Facilitator's Guide
-
-Are you a Confluent employee facilitating a hands-on workshop?
-- Check out the [facilitator's guide](./instructions/facilitator-guide.md)
-
-## Demo Only (No Hands-On)
-
-Are you presenting a demonstration to executives and just want everything running right away? 
-- See the [executive demo guide](./instructions/00-executive-demo)
-- Launch a workspace in "demo mode":
-  - https://gitpod.io/#DEMO_MODE=true/https://github.com/confluentinc/demo-siem-optimization
-
-
-
 ## References
 
 ### Demo Video
