@@ -166,7 +166,6 @@ services:
     depends_on:
       - broker
       - connect
-      - rest-proxy
       - control-center
       - ksqldb-server
     hostname: zeek-streamer
