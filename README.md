@@ -10,7 +10,7 @@ This demo runs best using Gitpod. Gitpod uses your existing git service account 
 - (if demo not in confluentinc yet) https://gitpod.io/#https://github.com/chuck-confluent/demo-siem-optimization
 - https://gitpod.io/#https://github.com/confluentinc/demo-siem-optimization
 
-If you want to run loclly or in a different environment, see the [appendix](./instructions/appendix.md).
+If you want to run locally or in a different environment, see the [appendix](./instructions/appendix.md).
 
 ### Hands-On Lab Instructions
 
