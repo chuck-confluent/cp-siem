@@ -9,12 +9,22 @@ You are a Confluent employee showcasing this demo for an executive audience.
 
 ## Demonstration Short Version
 
+If you don't want to run through the manual steps, then launch the workspace in "demo mode" so all components and connectors are already running.
 
+Launch the Gitpod workspace by clicking the link:
+- https://gitpod.io/#DEMO_MODE=true/https://github.com/confluentinc/demo-siem-optimization
+
+Things to highlight:
+- Confluent Sigma on port 8080
+- Confluent Control Center on port 9021
+  - topics
+  - connectors
+  - ksql queries
 
 ## Demonstration Script
 
 Launch the Gitpod workspace by clicking the link:
-- https://gitpod.io/#DEMO_MODE=true/https://github.com/confluentinc/demo-siem-optimization
+- https://gitpod.io/#https://github.com/confluentinc/demo-siem-optimization
 
 Say a few words while it starts.
 
@@ -60,10 +70,23 @@ Open Confluent Control Center by launching a new tab for port `9021` from Remote
 
 #### Add the `SplunkS2SSourceConnector`
 
-“As mentioned earlier, we are a company that has Splunk deployed, including forwarders to collect data and send it straight to Splunk.  In order to optimize this data and leverage other additional tools, we want to send the data to Confluent instead.  So let's spin up another connector to receive this data.”
+>As mentioned earlier, we are a company that has Splunk agents to collecting and sending data straight to Splunk.  In order to take advantage of real-time stream processing, we want to send the data to Confluent instead.  So let's spin up another connector to receive this data.
 
 1. Click "add connector" and select the `SplunkS2SSourceConnector`.
 2. Submit the connector.
 
 > For this one we don’t need to specify anything at all and will just stick with the defaults.
 
+> So at this point let's actually go back and take a quick peek into the topics to see what the data looks like.
+
+3. Inspect the records in the topics `syslog` and `splunk-s2s-events`
+
+### Analyze Streaming Data in Real Time
+
+#### View DNS Data from Zeek
+
+> So we have syslog data flowing from agents into Confluent via the SyslogSourceConnector and data from Splunk agents flowing into Confluent via the Splunks2sSourceConnector. There is also a third source of data -- DNS data taken from a Zeek sensor.
+
+1. Inspect the topic `dns`.
+
+> This data was captured from an exfiltration exercise and stored in a PCAP file. That file is then streamed into Confluent through a Kafka producer to simulate an obscenely high volume of DNS records being captured in real time.
