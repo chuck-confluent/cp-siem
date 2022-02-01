@@ -159,7 +159,7 @@ services:
     volumes:
       - ./ksqldb_scripts:/ksqldb_scripts
 
-  # See https://hub.docker.com/r/bertisondocker/zeek-tcpreplay-kafka
+  # See https://github.com/berthayes/zeek-tcpreplay-kafka
   zeek-streamer:
     image: bertisondocker/zeek-tcpreplay-kafka:latest
     container_name: zeek-streamer
@@ -171,6 +171,7 @@ services:
     hostname: zeek-streamer
     entrypoint: /init_dummy.sh
     volumes:
+      - ./scripts/init_dummy.sh:/init_dummy.sh
       - ./pcaps:/pcaps
       - ./local.zeek:/usr/local/zeek/share/zeek/site/local.zeek
       - ./send-to-kafka.zeek:/usr/local/zeek/share/zeek/site/send-to-kafka.zeek
