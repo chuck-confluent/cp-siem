@@ -32,9 +32,11 @@ Keep this guide open on a separate screen so you can refer to it throughout the 
 
 > I am going to demonstrate how Confluent can help you optimize your existing SIEM investment, while at the same time improving your cyber defense capabilities.
 
-2. Display this [architecture diagram](./images/architecture.svg) for your audience.
+2. Display this architecture diagramfor your audience:
 
-> In this demonstration, we take the role of a company that uses Splunk as its SIEM solution. We already have Splunk agents in place and potentially other tools like rsyslog or Zeek/Corelight. All of this data is either being dropped, or going straight into Splunk.
+    ![architecture diagram](./images/lab-architecture.svg)
+
+> In this demonstration, we take the role of a company that uses Splunk as its SIEM solution. We already have Splunk agents in place and potentially other tools like rsyslog or Zeek/Corelight. Before Confluent, all of this data was either being dropped, or going straight into Splunk.
 
 >  This demo will show four advantages of using Confluent: 
 >1. Real-time threat detection directly in the streams of data.
