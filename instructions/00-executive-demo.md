@@ -1,6 +1,6 @@
 # Executive Demonstration
 
-You are a Confluent employee showcasing this demo for an executive audience. As preparation, run through this demonstration yourself until you feel confident you know how it works and can speak intelligently about it.
+You are a Confluent employee showcasing this demo for an executive audience (or just a curious person who wants to learn more about SIEM optimization). As preparation, run through this demonstration yourself until you feel confident you know how it works and can speak intelligently about it.
 
 ## Presentation
 

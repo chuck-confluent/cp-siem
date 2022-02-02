@@ -3,7 +3,7 @@
 A sample csv file of known Ad servers is in the `ad_hosts.csv` file included in this repository.
 
 ```
-./cp-zeek/spooldir/ad_hosts/csv_input/ad_hosts.csv
+./spooldir/ad_hosts/csv_input/ad_hosts.csv
 ```
 It looks like this:
 ```
@@ -20,17 +20,17 @@ id,dateadded,domain,source
 ```
 To ingest this CSV file into a new topic and automatically create a schema for that topic, start a new Spooldir connector to watch for this source.  If you have CLI access, you can run:
 ```
-./start_adhosts_spooldir.sh
+./scripts/submit_adhosts_spooldir.sh
 ```
 Or you can upload the ```./scripts/adhosts_spooldir.json``` file by clicking "Upload connector config file" from within the Confluent Control Center UI.
 
 Once this is started, or if it had already been started, the `ad_hosts.csv` file moves to:
 ```
-./cp-zeek/spooldir/ad_hosts/csv_finished/ad_servers.csv
+./spooldir/ad_hosts/csv_finished/ad_servers.csv
 ```
 This means that if you are re-running the demonstration with a clean cluster you will need to ensure that you have moved it back to 
 ```
-./cp-zeek/spooldir/ad_hosts/csv_input/ad_servers.csv
+./spooldir/ad_hosts/csv_input/ad_servers.csv
 ```
 
 If you look under Topics, you should now see an topic called adhosts.
@@ -67,6 +67,20 @@ EMIT CHANGES;
 This query creates a new stream `MATCHED_DOMAINS_DNS` that is backed by a new topic, `matched_dns` 
 
 You can look for all DNS lookups that match any host listed in the ad_hosts.csv file with the following query:
-```
+```sql
 SELECT * FROM  MATCHED_DOMAINS_DNS EMIT CHANGES;
 ```
+
+## Reflection
+
+- What are a couple of things you learned by working hands-on with this Confluent lab?
+- What are some questions you still have? 
+  - Consider discussing in Slack or posting to the forum
+    - https://www.confluent.io/community/ask-the-community/
+
+## Resources
+
+- Go to https://developer.confluent.io/learn-kafka/ksqldb/intro/ to learn more about ksqlDB
+- See the ksqlDB docs (they are really good): https://docs.ksqldb.io
+- Here are some handy common KSQL snippets: https://ksqldb.io/examples.html
+- Here are excellent hands-on stream processing tutorials: https://developer.confluent.io/tutorials

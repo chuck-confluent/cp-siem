@@ -14,6 +14,9 @@ If you want to run locally or in a different environment, see the [appendix](./i
 
 ### Hands-On Lab Instructions
 
+Run through entire end-to-end demo to get the big picture. Zoom in on the individual labs to go into more detail.
+
+0. [End-to-End Demo](./instructions/00-executive-demo.md) (long)
 1. [Introduction](./instructions/01-introduction.md)
 2. [Analyze Syslog Data in Real Time with ksqlDB](./instructions/02-syslog.md)
 3. [Calculate Hourly Bandwidth Usage By Host with ksqlDB](./instructions/03-bandwidth.md)

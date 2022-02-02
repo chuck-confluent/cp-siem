@@ -18,3 +18,7 @@ This lab environment is a network of Docker containers. There is a Splunk event 
 1. Open Confluent Control Center by launching a new tab for port `9021` from Remote Explorer (see [Gitpod tips](./gitpod-tips.md)). Browse the various pages like topics and connect.
 
 2. In the repo, browse `.gitpod.yml` to get a sense of what runs on launch and what is happening on various ports. Similarly, browse `docker-compose.yml` to get a sense of what different containers are doing.
+
+## What next?
+
+Go to 
