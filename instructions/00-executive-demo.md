@@ -406,3 +406,156 @@ Back in Gitpod, open Confluent Control Center by launching a new tab for port `9
       timeframe: 5s
     ```
 
+> Now you can see we have matches.
+
+10. Go to Control Center and look at records in the `dns-detection` topic.
+
+> If you look at the DNS detections topic, you can see there's encoded data being tacked on to a domain called mrhaha.net. That's the rascal! This stream of just the detections can be passed to you SIEM tool via Kafka Connect, your SOAR, or another stream processor to take action.
+
+> Now I’m going to leverage Confluent Sigma's RegEx extraction processor. There are various ways to apply regular expressions in Kafka Connect and ksqlDB, but Confluent Sigma was purpose-built to put data into a form easily consumable by Splunk or other SIEM tools.
+
+11. Click on RegEx in the Confluent Sigma UI and paste in `cisco:asa` as the source type.
+
+> The source type here allows us to specify that we only want to run the extractions on a single type of record, which is more efficient than running regular expressions on every record. The regular expression field allows us to specify a pattern with capture groups that will get extracted into fields.
+
+12. Paste in the regular expression:
+    ```re
+    ^(?<timestamp>\w{3}\s\d{2}\s\d{2}:\d{2}:\d{2})\s(?<hostname>[^\s]+)\s\%ASA-\d-(?<messageID>[^:]+):\s(?<action>[^\s]+)\s(?<protocol>[^\s]+)\ssrc\sinside:(?<src>[0-9\.]+)\/(?<srcport>[0-9]+)\sdst\soutside:(?<dest>[0-9\.]+)\/(?<destport>[0-9]+)
+    ```
+> Next, we specify the topic where we want matching records to be sent, which in this case is `firewalls`. Then we can attach optional tags to matching records.
+
+13. Put `firewalls` for the topic and attach tags `location = edge` , `sourcetype = cisco:asa` , `index = main` and submit the rule.
+
+> The really amazing thing about using Sigma as the domain specific language is that new rules are published all the time. With Confluent Sigma, you can insert new rules into a special `sigma-rules` topic and the application will automatically pick them up and apply them to your data in real-time. This allows you to be much more proactive about staying on top of the latest threats.
+
+## Optimize What Ends Up in Splunk
+
+> So at this point we haven’t really done any substantial optimization on the data. We showed data enrichment and real-time threat detection, but now let's focus on how to optimize the data upstream of our SIEM tools. And I’m going to start off with some more filtering.
+
+1. Go to the ksqlDB editor and create the Splunk stream and the filtered cisco_asa stream.
+```sql
+CREATE STREAM SPLUNK (
+    `event` VARCHAR,
+    `time` BIGINT,
+    `host` VARCHAR,
+    `source` VARCHAR,
+    `sourcetype` VARCHAR,
+    `index` VARCHAR
+) WITH (
+KAFKA_TOPIC='splunk-s2s-events', VALUE_FORMAT='JSON');
+ 
+CREATE STREAM CISCO_ASA
+AS SELECT
+    `event`,
+    `source`,
+    `sourcetype`,
+    `index`
+FROM SPLUNK
+WHERE `sourcetype` = 'cisco:asa'
+EMIT CHANGES;
+```
+
+> With ksqlDB, we will give it a definition of the data types coming from the Splunk Universal Forwarder and then we will filter out all events that are not sourcetype cisco:asa.  In the real world, you would need to be more sophisticated about what you filter, but for this generated data it is effectively just filtering out some internal splunk messages.
+
+> So suppose I know that we have a noisy but benign data producer.  I can go ahead and filter them out as well with this query.
+
+2. Create query to filter out noisy producer.
+    ```sql
+    CREATE STREAM CISCO_ASA_FILTER_106023
+    WITH (KAFKA_TOPIC='CISCO_ASA_FILTER_106023', PARTITIONS=1, REPLICAS=1)
+    AS SELECT
+        SPLUNK.`event` `event`,
+        SPLUNK.`source` `source`,
+        SPLUNK.`sourcetype` `sourcetype`,
+        SPLUNK.`index` `index`
+    FROM SPLUNK SPLUNK
+    WHERE ((SPLUNK.`sourcetype` = 'cisco:asa') AND (NOT (SPLUNK.`event` LIKE '%ASA-4-106023%')))
+    EMIT CHANGES;
+    ```
+> Note that while I’m filtering out in the derived stream, the original stream has all the raw data in it.  If I was required for compliance to hold on to this I could do so in a very cost effective way in Confluent using tiered storage.  In this case data over a certain age will go into S3 compatible storage, but the refined and much smaller data set can be sent to your SIEM.  With Confluent you can always rewind the original data stream (as long as you've defined a retention period) and reprocess it later if you realize that you want to adjust your rules. 
+
+> Filtering is helpful, but you have to be certain and there is only so much you can filter.  So I want to demonstrate how to use windowed aggregations to massively compress recurring events.  In this case I’m going to use 60 second intervals.
+
+3. Create the firewalls stream and create the windowed aggregation.
+    ```sql
+    CREATE STREAM FIREWALLS (
+        `src` VARCHAR,
+        `messageID` BIGINT,
+        `index` VARCHAR,
+        `dest` VARCHAR,
+        `hostname` VARCHAR,
+        `protocol` VARCHAR,
+        `action` VARCHAR,
+        `srcport` BIGINT,
+        `sourcetype` VARCHAR,
+        `destport` BIGINT,
+        `location` VARCHAR,
+        `timestamp` VARCHAR
+    ) WITH (
+    KAFKA_TOPIC='firewalls', value_format='JSON'
+    );
+
+    CREATE TABLE AGGREGATOR WITH (KAFKA_TOPIC='AGGREGATOR', KEY_FORMAT='JSON', PARTITIONS=1, REPLICAS=1) AS SELECT
+        `hostname`,
+        `messageID`,
+        `action`,
+        `src`,
+        `dest`,
+        `destport`,
+        `sourcetype`,
+        as_value(`hostname`) as hostname,
+        as_value(`messageID`) as messageID,
+        as_value(`action`) as action,
+        as_value(`src`) as src,
+        as_value(`dest`) as dest,
+        as_value(`destport`) as dest_port,
+        as_value(`sourcetype`) as sourcetype,
+        TIMESTAMPTOSTRING(WINDOWSTART, 'yyyy-MM-dd HH:mm:ss', 'UTC') TIMESTAMP,
+        60 DURATION,
+        COUNT(*) COUNTS
+    FROM FIREWALLS FIREWALLS
+    WINDOW TUMBLING ( SIZE 60 SECONDS ) 
+    GROUP BY `sourcetype`, `action`, `hostname`, `messageID`, `src`, `dest`, `destport`
+    EMIT CHANGES;
+    ```
+> Essentially what we're saying is if a message is completely the same but just a new occurrence at a different time I don’t want to emit a new event but instead tally it into a count. The first seven fields are the fields we're using to determine a unique message and you can see the count aggregation. 
+
+> Rather than continuously sending each individual message into Splunk -- and **paying** for it, including license and indexing cost -- I want to send each unique event 1 time per 60 seconds but i’ll add a count in to properly represent volumes.
+
+4. Look at the `AGGREGATOR` topic in Control Center.
+
+> Let's take a look at the output.  Note the counts on each of the records now.
+
+> Ok lets get some of this data over to Splunk.  I could go ahead and spin up two sink connectors via the web interface but to expedite it I’m just going to hit a script that will do this for me via Connect's REST API.
+
+5. In the terminal, execute
+    ```bash
+    ./scripts/submit_splunk_sink.sh
+    ```
+
+6. Go to the Connect cluster in Control Center.
+
+> Note that you now have two sink connectors going to Splunk.  Lets head over to splunk now and look at the data.
+
+7. Open the Splunk UI by launching a new tab for port `8000` from Remote Explorer (see [Gitpod tips](./gitpod-tips.md)). Navigate to app -> search -> search. Run `index=* search`.
+
+> You can see that we have two source types. One is for the filtered ASA data and the other one is for the deduped stream.  In fact what I should have done was actually run the deduping stream processor ON top of the filtered data and I would have gotten slightly better compression.  In any event I can run a query in Splunk that will give me a report and enable me to compare my savings.
+
+8. Run the query:
+    ```
+    index=* sourcetype=httpevent
+    | bin span=5m _time
+    | stats sum(COUNTS) as raw_events count(_raw) as filtered_events by _time, SOURCETYPE, HOSTNAME, MESSAGEID, , ACTION, SRC, DEST, DEST_PORT, DURATION
+    | eval savings=round(((raw_events-filtered_events)/raw_events) * 100,2) . "%" 
+    | sort -savings
+    ```
+> Effectively what you are seeing is a side by comparison for the number of straight cisco events in the filtered data vs. the number in my deduplicated data broken down by event type.  You can see there is anywhere between a 98% to 99% savings in the number records.
+
+## Avoid Lock-In -- Analyze with Elastic
+
+> So remember that voluminous DNS data we talked about in the beginning?  Well we are already analyzing this in real time with Sigma but suppose we wanted to index it all and do retrospective analysis. Maybe we don’t want to send it to Splunk because of its size. Maybe we want to leverage another tool, lets say Elastic, for this.  I can just as easily send a topic to Elastic as I can to Splunk.  So lets create a new sink connector for the enriched DNS we made.  Again, I’ll just execute a script for this.
+
+1. In the terminal, submit the connector and then go to Connect -> connectors in Control Center:
+    ```bash
+    ./scripts/submit_elastic_sink.sh
+    ```
