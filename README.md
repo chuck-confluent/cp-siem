@@ -33,3 +33,7 @@ If you want to run locally or in a different environment, see the [appendix](./i
 ### Cyber Defense Whitepaper
 
 - https://assets.confluent.io/m/34ffc6b59ead86e5/
+
+### Confluent Sigma
+
+- https://github.com/michaelpeacock/kafka-sigma-streams

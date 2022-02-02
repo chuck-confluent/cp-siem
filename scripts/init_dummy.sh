@@ -29,7 +29,7 @@ output="/pcaps/edited_syslog.pcap"
  --enet-dmac=$connectmac \
  --fixcsum
 
-# Replay zeek packet sniff from exfiltration exercise
+# Replay zeek packet sniff from exfiltration exercise and send to Kafka via Zeek Kafka Plugin
 /usr/bin/tcpreplay -i dummy0 --loop=1000000 /pcaps/zeek_streamer.pcap &
 
 # Replay the edited syslog PCAP
