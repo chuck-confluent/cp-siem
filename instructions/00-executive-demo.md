@@ -1,27 +1,15 @@
 # Executive Demonstration
 
-You are a Confluent employee showcasing this demo for an executive audience.
+You are a Confluent employee showcasing this demo for an executive audience. As preparation, run through this demonstration yourself until you feel confident you know how it works and can speak intelligently about it.
 
 ## Presentation
 
 1. Request read access to the [demo presentation](https://docs.google.com/presentation/d/1fRue23OSV_zddkXWOv4YOARvK1SHAOkffcFzms0RBsk/edit?usp=sharing)
 2. Deliver the slide presentation to set the context
 
-## Demonstration Short Version
-
-If you don't want to run through the manual steps, then launch the workspace in "demo mode" so all components and connectors are already running.
-
-Launch the Gitpod workspace by clicking the link:
-- https://gitpod.io/#DEMO_MODE=true/https://github.com/confluentinc/demo-siem-optimization
-
-Things to highlight:
-- Confluent Sigma on port 8080
-- Confluent Control Center on port 9021
-  - topics
-  - connectors
-  - ksql queries
-
 # Demonstration Script
+
+## Introduction
 
 Keep this guide open on a separate screen so you can refer to it throughout the demo. It is suggested to can go to GitHub to benefit from code copy button functionality.
 - https://github.com/confluentinc/demo-siem-optimization/instructions/00-executive-demo.md
@@ -37,17 +25,19 @@ Keep this guide open on a separate screen so you can refer to it throughout the 
 
     ![architecture diagram](./images/lab-architecture.svg)
 
-> In this demonstration, we take the role of a company that uses Splunk as its SIEM solution. We already have Splunk agents in place and potentially other tools like rsyslog or Zeek/Corelight. Before Confluent, all of this data was either being dropped, or going straight into Splunk.
-
 >  This demo will show four advantages of using Confluent: 
 >1. Real-time threat detection directly in the streams of data.
 >2. Decrease your Splunk costs by filtering and aggregating the data before it lands in Splunk.
 >3. Gain insights from high volume data too expensive to index
 >4. Avoid vendor lock-in so that you can take advantage of the strengths of different SIEM vendors.
 
+> The lab environment itself is a network of Docker containers. There is a Splunk event generator feeding data to the Universal Forwarder. There is also a container that uses PCAP files to simulate network traffic that is sniffed by Zeek. The Splunk events and syslog events are streamed into topics on the Confluent Server (which is a Kafka broker) via Kafka Connect source connectors. Socket connection, DNS, HTTP, and other network data sniffed by Zeek is produced directly to the broker using an open source Zeek-Kafka plugin. ksqlDB and Confluent Sigma are stream processors that filter, aggregate, and enrich data in motion. The optimized data is sent via Kafka Connect sink connectors to Splunk or Elastic for indexing and analysis.
+
+NOTE: For more detailed information about the ports being used, see the `.gitpod.yml` file. For more detailed information about how each component functions, see the `docker-compose.yml` file.
+
 ## Explore Control Center
 
-Back in Gitpod, open Confluent Control Center by launching a new tab for port `9021` from Remote Explorer (see [Gitpod tips](./gitpod-tips.md)).
+Back in Gitpod, open Confluent Control Center by launching a new tab for port `9021` from Remote Explorer (see [Gitpod tips](./gitpod-tips.md)). Browse the topics page.
 
 > What you are seeing here are a number of topics that already exist in this newly spun up environment. Topics are how different streams of data are organized.  Most of these topics are receiving PCAP data streaming in through a Zeek container. Zeek is a common tool in cyber defense -- it's an open source network sensor that reads packet traffic and produces metadata about that activity on the network.  For instance you can see topics for socket connections, dns queries, http requests, running applications, etc. Zeek is a good example of one of the many tools in this domain that have native support for producing directly into Confluent. Other examples are things like syslog-ng, r-syslog, beats, blue coat proxy, etc.
 
@@ -520,7 +510,7 @@ EMIT CHANGES;
     ```
 > Essentially what we're saying is if a message is completely the same but just a new occurrence at a different time I don’t want to emit a new event but instead tally it into a count. The first seven fields are the fields we're using to determine a unique message and you can see the count aggregation. 
 
-> Rather than continuously sending each individual message into Splunk -- and **paying** for it, including license and indexing cost -- I want to send each unique event 1 time per 60 seconds but i’ll add a count in to properly represent volumes.
+> Rather than continuously sending each individual message into Splunk -- and **paying** for it, including license and indexing cost -- I want to send each unique event 1 time per 60 seconds, with a count to properly represent weight each record .
 
 4. Look at the `AGGREGATOR` topic in Control Center.
 
@@ -559,3 +549,21 @@ EMIT CHANGES;
     ```bash
     ./scripts/submit_elastic_sink.sh
     ```
+
+> You can now see we have a connector sending data to Elastic. Lets head over to Elastic to verify that its getting in.
+
+2. Open Kibana, Elastic's web UI, on port `5601` from Remote Explorer (see [Gitpod tips](./gitpod-tips.md))
+
+. From Kibana's hamburger menu on the top left, go to Management -> Stack Management -> Index Patterns and create an index pattern `rich*` match the `rich_dns` index. Then click the the hamburger menu and select "Discover".
+
+> As you can, see the data is here.  I’ll leave the Elastic analysis up to your imagination.
+
+> I have sent data to Splunk and Elastic but I could have just as easily sent the data to a S3, a data lake, or whatever you want to use. This is an essential aspect of using Confluent to create an observability data fabric. it enables a vast ecosystem of tools rather than forcing you to use a single vendor. 
+
+## Summary
+
+>  In summary, this demo showed four advantages of using Confluent: 
+>1. Detect threats directly in the streams of data in real-time with ksqlDB and Confluent Sigma.
+>2. Decrease your Splunk costs by filtering and aggregating the data before it lands in Splunk.
+>3. Gain insights from high volume data too expensive to index.
+>4. Avoid vendor lock-in so that you can take advantage of the strengths of different SIEM vendors.
