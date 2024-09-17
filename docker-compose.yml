@@ -25,18 +25,16 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_REPORTERS_TELEMETRY_AUTO_ENABLE: 'false'
+      KAFKA_CONFLUENT_BALANCER_ENABLE: 'false'
+      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9101
-      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker:29092
-      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
-      CONFLUENT_METRICS_ENABLE: 'true'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
 
   schema-registry:
@@ -52,7 +50,7 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
 
   connect:
-    image: confluentinc/cp-server-connect-base:latest
+    build: kafka-connect
     hostname: connect
     container_name: connect
     user: root
@@ -81,22 +79,14 @@ services:
       CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
       # CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
-      # ^^ From Johnny's docker-compose.yml file
       CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
       CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
       CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
-      # CLASSPATH required due to CC-2422
-      CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-latest.jar
-      CONNECT_PRODUCER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
-      CONNECT_CONSUMER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
       CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
       CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR
     volumes:
       - ./spooldir/:/var/spooldir/
-      - ./scripts/:/tmp/scripts/
-    command:
-      - /tmp/scripts/startKafkaConnectComponents.sh
 
   control-center:
     image: confluentinc/cp-enterprise-control-center:latest
@@ -113,14 +103,16 @@ services:
     environment:
       CONTROL_CENTER_BOOTSTRAP_SERVERS: 'broker:29092'
       CONTROL_CENTER_CONNECT_CONNECT-DEFAULT_CLUSTER: 'connect:8083'
+      # The control center server connects to ksqlDB through the docker network
       CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
+      # If running in Gitpod, your browser must connect to ksqlDB via Gitpod's proxy URL
       CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: https://8088-${GITPOD_WORKSPACE_ID}.${GITPOD_WORKSPACE_CLUSTER_HOST}
+      # If running locally, your browser must connect to ksqlDB through localhost 8088. Comment out the above line and uncomment the line below.
+      # CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: https://localhost:8088
       CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       CONTROL_CENTER_REPLICATION_FACTOR: 1
       CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
-      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
-      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
-      PORT: 9021
+      CONTROL_CENTER_MODE_ENABLE: "management"
 
   ksqldb-server:
     image: confluentinc/cp-ksqldb-server:latest
@@ -132,7 +124,7 @@ services:
     ports:
       - "8088:8088"
     volumes:
-      - ./ksql-extension:/etc/ksql-extension/
+      - ./ksqlDB/ksql-extension:/etc/ksql-extension/
       - ./mmdb:/opt/mmdb/
     environment:
       KSQL_CONFIG_DIR: "/etc/ksql"
@@ -144,8 +136,6 @@ services:
       KSQL_LISTENERS: "http://0.0.0.0:8088"
       KSQL_CACHE_MAX_BYTES_BUFFERING: 0
       KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
-      KSQL_PRODUCER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringProducerInterceptor"
-      KSQL_CONSUMER_INTERCEPTOR_CLASSES: "io.confluent.monitoring.clients.interceptor.MonitoringConsumerInterceptor"
       KSQL_KSQL_CONNECT_URL: "http://connect:8083"
       KSQL_KSQL_HIDDEN_TOPICS: '^_.*'
       KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
@@ -161,7 +151,7 @@ services:
     entrypoint: /bin/sh
     tty: true
     volumes:
-      - ./ksqldb_scripts:/ksqldb_scripts
+      - ./ksqlDB/queries:/queries
 
   # See https://github.com/berthayes/zeek-tcpreplay-kafka
   zeek-streamer:
@@ -175,8 +165,7 @@ services:
     volumes:
       - ./scripts/init_dummy.sh:/init_dummy.sh
       - ./pcaps:/pcaps
-      - ./local.zeek:/usr/local/zeek/share/zeek/site/local.zeek
-      - ./send-to-kafka.zeek:/usr/local/zeek/share/zeek/site/send-to-kafka.zeek
+      - ./zeek:/usr/local/zeek/share/zeek/site
     cap_add:
       - NET_ADMIN
 
@@ -221,22 +210,23 @@ services:
       - 8000:8000
       - 8090:8090
     volumes:
-      - ./default.yml:/tmp/defaults/default.yml
+      - ./splunk/default.yml:/tmp/defaults/default.yml
+      - ./splunk/splunk-search/:/opt/splunk/etc/apps/splunk-search
 
   splunk_uf1:
-      image: splunk/universalforwarder:latest
+      image: splunk/universalforwarder:8.2.1
       hostname: splunk_uf1
       container_name: splunk_uf1
       depends_on:
         - connect
       environment:
-        - SPLUNK_START_ARGS=--accept-license
+        - SPLUNK_START_ARGS=--accept-license --answer-yes --no-prompt
         - SPLUNK_PASSWORD=dingdong
         - SPLUNK_APPS_URL=https://raw.githubusercontent.com/JohnnyMirza/confluent_splunk_demo/main/splunk-add-on-for-cisco-asa_410.tgz
       volumes:
-        - $PWD/splunk-uf1/:/opt/splunkforwarder/etc/apps/splunk-uf1/
+        - ./splunk/splunk-uf1/:/opt/splunkforwarder/etc/apps/splunk-uf1/
       ports:
-        - 3333:3333
+        - "3333"
 
   splunk_eventgen:
     image: guilhemmarchand/splunk-eventgen:latest
@@ -244,7 +234,7 @@ services:
     restart: unless-stopped
     user: 'root'
     volumes:
-      - $PWD/splunk-eventgen/:/opt/splunk-eventgen
+      - ./splunk/splunk-eventgen/:/opt/splunk-eventgen
     ports:
       - 6379:6379
       - 9500:9500
@@ -262,7 +252,7 @@ services:
       - ksqldb-server
     hostname: cyber-sigma-streams
     volumes:
-      - $PWD/scripts/:/tmp/config
+      - ./sigma:/tmp/config
     command:
       - bash
       - -c
@@ -273,7 +263,7 @@ services:
         sleep infinity
 
   cyber-sigma-regex-ui:
-    image: michaelpeacock/confluent-sigma-regex-ui:v2_1
+    image: michaelpeacock/confluent-sigma-regex-ui:latest
     container_name: cyber-sigma-regex-ui
     depends_on:
       - broker

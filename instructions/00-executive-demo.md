@@ -107,7 +107,7 @@ Back in Gitpod, open Confluent Control Center by launching a new tab for port `9
 
 ### Filter and Enrich the DNS Stream
 
-> Let's use Confluent to optimize your data and look for threats upstream of your SIEM. We're going to use Confluent's stream processing database ksqlDB to filter, enrich, and aggregate these data streams in real-time. 
+> Let's use Confluent to optimize your data and look for threats upstream of your SIEM. We're going to use Confluent's stream processing capability ksqlDB to filter, enrich, and aggregate these data streams in real-time. 
 
 2. Create the `conn_stream` in the KSQL editor.
 
@@ -520,7 +520,7 @@ EMIT CHANGES;
 
 5. In the terminal, execute
     ```bash
-    ./scripts/submit_splunk_sink.sh
+    ./scripts/submit-connector.sh kafka-connect/connectors/splunk-sink.json
     ```
 
 6. Go to the Connect cluster in Control Center.
@@ -547,7 +547,7 @@ EMIT CHANGES;
 
 1. In the terminal, submit the connector and then go to Connect -> connectors in Control Center:
     ```bash
-    ./scripts/submit_elastic_sink.sh
+    ./scripts/submit-connector.sh kafka-connect/connectors/elastic-sink.json
     ```
 
 > You can now see we have a connector sending data to Elastic. Lets head over to Elastic to verify that its getting in.
